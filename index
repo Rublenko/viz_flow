@@ -1,1 +1,442 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tableau Prep Flow — одна ветка (слух)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1f2937;
+      padding: 24px;
+    }
+    .wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #d9e0e8;
+      border-radius: 10px;
+      padding: 20px 24px 26px;
+      box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .hint {
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .controls {
+      display: flex;
+      gap: 8px;
+    }
+    button.btn {
+      background: #f9fafb;
+      border: 1px solid #cbd5e1;
+      color: #1e293b;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    button.btn:hover { background: #eef2f6; }
 
+    .flow-stage {
+      position: relative;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 36px 20px 30px;
+      overflow-x: auto;
+    }
+    .flow-row {
+      display: flex;
+      align-items: center;
+      min-width: 1060px;
+      position: relative;
+      height: 120px;
+    }
+    .node-group {
+      display: flex;
+      align-items: center;
+      position: relative;
+      z-index: 2;
+    }
+    .node-card {
+      width: 112px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      user-select: none;
+      transition: transform 0.15s ease;
+    }
+    .node-card:hover { transform: translateY(-2px); }
+
+    .top-badges {
+      height: 18px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-bottom: 4px;
+      font-size: 10px;
+      color: #475569;
+    }
+    .mini-icon {
+      padding: 1px 4px;
+      border-radius: 3px;
+      background: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      font-family: monospace;
+      font-size: 9px;
+      line-height: 1.2;
+    }
+
+    .pill {
+      width: 92px;
+      height: 22px;
+      border-radius: 11px;
+      background: #ffffff;
+      border: 1.5px solid #94a3b8;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+    }
+    .pill-bar {
+      height: 6px;
+      width: 100%;
+    }
+    .pill-body {
+      flex: 1;
+      background: #ffffff;
+    }
+    .node-card.active .pill {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    }
+
+    .c-teal { background: #14b8a6; }
+    .c-green { background: #65a30d; }
+    .c-orange { background: #ea580c; }
+    .c-slate { background: #64748b; }
+    .c-yellow { background: #eab308; }
+    .c-blue { background: #3b82f6; }
+    .c-amber { background: #d97706; }
+
+    .node-label {
+      margin-top: 6px;
+      font-size: 11px;
+      color: #334155;
+      text-align: center;
+      max-width: 108px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .node-card.active .node-label {
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
+    .connector {
+      width: 48px;
+      height: 14px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      margin: 0 2px;
+      margin-bottom: 18px;
+    }
+    .connector::before {
+      content: "";
+      width: 100%;
+      height: 1.5px;
+      background: #94a3b8;
+    }
+    .pulse-dot {
+      position: absolute;
+      left: 0;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #0284c7;
+      box-shadow: 0 0 6px rgba(2, 132, 199, 0.7);
+      animation: moveDot 1.8s linear infinite;
+    }
+    .paused .pulse-dot { animation-play-state: paused; }
+
+    @keyframes moveDot {
+      0% { left: 0; opacity: 0; }
+      15% { opacity: 1; }
+      85% { opacity: 1; }
+      100% { left: calc(100% - 7px); opacity: 0; }
+    }
+
+    .inspector {
+      margin-top: 18px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 16px 20px;
+    }
+    .inspector-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .inspector-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .inspector-type {
+      font-size: 12px;
+      color: #475569;
+      background: #e2e8f0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-family: monospace;
+    }
+    .meaning {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #1e293b;
+      margin-bottom: 12px;
+    }
+    .formula-box {
+      background: #0f172a;
+      color: #e2e8f0;
+      border-radius: 6px;
+      padding: 12px 14px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 12.5px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+    .formula-comment { color: #7dd3fc; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <div class="title">Одна ветка потока в стиле Tableau Prep (mobility → слух)</div>
+        <div class="hint">Нажми на любой узел на схеме, чтобы увидеть формулы и смысл шага</div>
+      </div>
+      <div class="controls">
+        <button class="btn" id="toggleAnimBtn" type="button">Пауза анимации</button>
+      </div>
+    </div>
+
+    <div class="flow-stage" id="flowStage">
+      <div class="flow-row" id="flowRow"></div>
+    </div>
+
+    <div class="inspector" id="inspector"></div>
+  </div>
+
+  <script>
+    const nodesData = [
+      {
+        id: "period",
+        name: "період",
+        barClass: "c-teal",
+        badges: ["f", "fx"],
+        type: "Filter & Period Step",
+        meaning: "Отбирает актуальные отчёты по статусу и задаёт рамку периода для расчётов (текущий и предыдущий период), чтобы не тянуть лишний балласт.",
+        formula: `([статус звіту] == "active" OR [статус звіту] == "new")
+// Ограничение окна периодов в ветке:
+([період] == [max period] OR [період] == [max period] - 1)`
+      },
+      {
+        id: "mobility",
+        name: "mobility",
+        barClass: "c-green",
+        badges: ["fx", "0/1"],
+        type: "Clean / Безбар'єрність",
+        meaning: "Приводит ответы «Так / Ні» (включая разный регистр через UPPER) к числовым флагам 1 / 0, чтобы дальше по ним можно было быстро считать суммы и индексы.",
+        formula: `IF UPPER([Вільний (безперешкодний) доступ до приміщення (так/ні)]) = "ТАК" THEN 1
+ELSEIF UPPER([Вільний (безперешкодний) доступ до приміщення (так/ні)]) = "НІ" THEN 0
+END`
+      },
+      {
+        id: "hearing",
+        name: "слух",
+        barClass: "c-orange",
+        badges: ["fx", "or"],
+        type: "Sub-branch / Слух",
+        meaning: "Собирает критерии доступности для людей с нарушением слуха (видеосвязь с переводчиком жестового языка, табло АСУ очереди, звукоусиление) в единый признак.",
+        formula: `IF [Наявна можливість встановлення відеозвʼязку з перекладачем жестової] = 1
+OR [Автоматизована система керування чергою візуалізує інформацію на дис] = 1
+OR [Інформаційні термінали оснащені приладами для підсилення звуку (так] = 1
+THEN 1 ELSE 0 END`
+      },
+      {
+        id: "pivot",
+        name: "Pivot 1 (1) (1)",
+        barClass: "c-slate",
+        badges: ["pivot"],
+        type: "Columns to Rows",
+        meaning: "Переворачивает широкую таблицу с множеством колонок-признаков в компактную структуру «атрибут / значение» под единую схему витрины.",
+        formula: `// Разворот колонок признаков (Columns -> Rows):
+// Ключи среза: [idf], [область], [період], [Тип ЦНАП]
+// На выходе: имя признака/подкатегории и его значение`
+      },
+      {
+        id: "agg",
+        name: "aggregate mob...",
+        barClass: "c-yellow",
+        badges: ["Σ", "LOD"],
+        type: "Aggregate & Rank",
+        meaning: "Заранее считает агрегаты, доли и ранги на уровне периода, области и подкатегории — дашборду в Tableau не нужно пересчитывать это на лету.",
+        formula: `{{FIXED [період], [область], [SubCategoryNames] : SUM(ZN([SubCategoryValues]))}}
+{{PARTITION [період] : { ORDERBY [Fixed LOD1] ASC : RANK_DENSE() }}}
+[CategoryValues1] / ([MAX Rank1] * 2)`
+      },
+      {
+        id: "clean",
+        name: "Clean 6 (1) (1)",
+        barClass: "c-blue",
+        badges: ["fx", "trim"],
+        type: "Clean & Trim",
+        meaning: "Убирает лишние промежуточные поля и строки, чистит пробелы и нормализует значения перед сведением в итоговую таблицу.",
+        formula: `ROUND([SubCategoryValues1], 3)
+// Очистка ключей и приведение типов перед сборкой витрины`
+      },
+      {
+        id: "join",
+        name: "Join 14 (1) (1)",
+        barClass: "c-amber",
+        badges: ["join"],
+        type: "Join / Assemble",
+        meaning: "Соединяет подготовленный блок с основной сеткой показателей/ключей, чтобы дальше уйти в UNION в быструю витрину без лишних вычислений в отчёте.",
+        formula: `// Соединение по ключам среза ([idf], [період], [SubCategoryNames])
+// Итог: готовые агрегированные значения (value / subvalue) для витрины`
+      }
+    ];
+
+    let selectedId = nodesData[0].id;
+    const flowRow = document.getElementById("flowRow");
+    const inspector = document.getElementById("inspector");
+    const flowStage = document.getElementById("flowStage");
+    const toggleBtn = document.getElementById("toggleAnimBtn");
+
+    function renderFlow() {
+      flowRow.innerHTML = "";
+      nodesData.forEach((node, idx) => {
+        const group = document.createElement("div");
+        group.className = "node-group";
+
+        const card = document.createElement("div");
+        card.className = "node-card" + (node.id === selectedId ? " active" : "");
+        card.onclick = () => {
+          selectedId = node.id;
+          renderFlow();
+          renderInspector();
+        };
+
+        const badges = document.createElement("div");
+        badges.className = "top-badges";
+        node.badges.forEach(b => {
+          const sp = document.createElement("span");
+          sp.className = "mini-icon";
+          sp.textContent = b;
+          badges.appendChild(sp);
+        });
+
+        const pill = document.createElement("div");
+        pill.className = "pill";
+
+        const bar = document.createElement("div");
+        bar.className = "pill-bar " + node.barClass;
+
+        const body = document.createElement("div");
+        body.className = "pill-body";
+
+        pill.appendChild(bar);
+        pill.appendChild(body);
+
+        const label = document.createElement("div");
+        label.className = "node-label";
+        label.title = node.name;
+        label.textContent = node.name;
+
+        card.appendChild(badges);
+        card.appendChild(pill);
+        card.appendChild(label);
+        group.appendChild(card);
+
+        if (idx < nodesData.length - 1) {
+          const conn = document.createElement("div");
+          conn.className = "connector";
+          const dot = document.createElement("span");
+          dot.className = "pulse-dot";
+          dot.style.animationDelay = (idx * 0.25) + "s";
+          conn.appendChild(dot);
+          group.appendChild(conn);
+        }
+
+        flowRow.appendChild(group);
+      });
+    }
+
+    function renderInspector() {
+      const node = nodesData.find(n => n.id === selectedId) || nodesData[0];
+      const formattedFormula = node.formula
+        .split("\n")
+        .map(line => {
+          const trimmed = line.trimStart();
+          if (trimmed.startsWith("//")) {
+            return `<span class="formula-comment">${escapeHtml(line)}</span>`;
+          }
+          return escapeHtml(line);
+        })
+        .join("\n");
+
+      inspector.innerHTML = `
+        <div class="inspector-head">
+          <div class="inspector-title">${escapeHtml(node.name)}</div>
+          <div class="inspector-type">${escapeHtml(node.type)}</div>
+        </div>
+        <div class="meaning">${escapeHtml(node.meaning)}</div>
+        <div class="formula-box">${formattedFormula}</div>
+      `;
+    }
+
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+    }
+
+    toggleBtn.addEventListener("click", () => {
+      const isPaused = flowStage.classList.toggle("paused");
+      toggleBtn.textContent = isPaused ? "Запустить анимацию" : "Пауза анимации";
+    });
+
+    renderFlow();
+    renderInspector();
+  </script>
+</body>
+</html>
